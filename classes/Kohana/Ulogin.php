@@ -106,7 +106,7 @@ class Kohana_Ulogin {
 		$s = Request::factory('http://ulogin.ru/token.php?token=' . $_POST['token'] . '&host=' . $domain)->execute()->body();
 		$user = json_decode($s, true);
 				
-		$ulogin = ORM::factory('ulogin', array('identity' => $user['identity']));
+		$ulogin = ORM::factory('Ulogin', array('identity' => $user['identity']));
 		
 		if (!$ulogin->loaded())
 		{
@@ -139,9 +139,9 @@ class Kohana_Ulogin {
 						$data[$field] = $user[$field];
 				}
 							
-				$orm_user = ORM::factory('user')->values($data);
+				$orm_user = ORM::factory('User')->values($data);
 				$orm_user->create();
-				$orm_user->add('roles', ORM::factory('role', array('name' => 'login')));
+				$orm_user->add('roles', ORM::factory('Role', array('name' => 'login')));
 				
 				$user['user_id'] = $orm_user->id;
 				
