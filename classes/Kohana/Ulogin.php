@@ -3,13 +3,13 @@
 class Kohana_Ulogin {
 	
 	protected $config = array(
-		// Возможные значения: small, panel, window
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: small, panel, window
 		'type' 			=> 'panel',
 		
-		// на какой адрес придёт POST-запрос от uLogin
+		// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ POST-пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ uLogin
 		'redirect_uri' 	=> NULL,
 		
-		// Сервисы, выводимые сразу
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		'providers'		=> array(
 			'vkontakte',
 			'facebook',
@@ -17,7 +17,7 @@ class Kohana_Ulogin {
 			'google',
 		),
 		
-		// Выводимые при наведении
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		'hidden' 		=> array(
 			'odnoklassniki',
 			'mailru',
@@ -25,17 +25,17 @@ class Kohana_Ulogin {
 			'openid'
 		),
 		
-		// Эти поля используются для значения поля username в таблице users
+		// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ username пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ users
 		'username' 		=> array (
-			'first_name',
+	//		'first_name',
 		),
 		
-		// Обязательные поля
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 		'fields' 		=> array(
 			'email',
 		),
 		
-		// Необязательные поля
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 		'optional'		=> array(),
 	);
 	
@@ -49,16 +49,27 @@ class Kohana_Ulogin {
 	public function __construct(array $config = array())
 	{
 		$this->config = array_merge($this->config, Kohana::$config->load('ulogin')->as_array(), $config);
-		
+
 		if ($this->config['redirect_uri'] === NULL)
 			$this->config['redirect_uri'] = Request::initial()->url(true);
 	}
 	
 	public function render()
-	{	
-		$params = 	
+	{
+        $fields = array();
+        foreach($this->config['username'] as $param)
+        {
+            if(is_array($param))
+            {
+                $fields = array_merge($fields, $param);
+            } else {
+                $fields[] = $param;
+            }
+        }
+
+        $params =
 			'display='.$this->config['type'].
-			'&fields='.implode(',', array_merge($this->config['username'], $this->config['fields'])).
+			'&fields='.implode(',', array_merge( $fields, $this->config['fields'])).
 			'&providers='.implode(',', $this->config['providers']).
 			'&hidden='.implode(',', $this->config['hidden']).
 			'&redirect_uri='.$this->config['redirect_uri'].
@@ -113,17 +124,26 @@ class Kohana_Ulogin {
 			if (($orm_user = Auth::instance()->get_user()))
 			{
 				$user['user_id'] = $orm_user->id;
-				$ulogin->values($user, array(
-					'user_id',
-					'identity',
-					'network',
-				))->create();
+                $this->create_ulogin($ulogin, $user);
 			}
 			else
 			{
 				$data['username'] = '';
 				foreach($this->config['username'] as $part_of_name)
-					$data['username'] .= (empty($user[$part_of_name]) ? '' : (' '.$user[$part_of_name]));
+                {
+                    if (is_array($part_of_name)) {
+                        foreach( $part_of_name as $else_name)
+                        {
+                            if (isset($user[$else_name])) {
+                               $test_name  = $else_name;
+                                break;
+                            }
+                        }
+                    } else {
+                       $test_name =  $part_of_name;
+                    }
+                    $data['username'] .= (empty($user[$test_name]) ? '' : (' '.$user[$test_name]));
+                }
 				
 				$data['username'] = trim($data['username']);
 				
@@ -138,18 +158,12 @@ class Kohana_Ulogin {
 					if (!empty($user[$field]))
 						$data[$field] = $user[$field];
 				}
-							
-				$orm_user = ORM::factory('User')->values($data);
-				$orm_user->create();
-				$orm_user->add('roles', ORM::factory('Role', array('name' => 'login')));
-				
+
+                $orm_user = $this->create_new_user($data);
+
 				$user['user_id'] = $orm_user->id;
 				
-				$ulogin->values($user, array(
-					'user_id',
-					'identity',
-					'network',
-				))->create();
+                $this->create_ulogin($ulogin, $user);
 				
 				Auth::instance()->force_login($orm_user);
 			}
@@ -164,4 +178,21 @@ class Kohana_Ulogin {
 	{
 		return !empty($_POST['token']);
 	}
+
+    protected function create_ulogin($ulogin, $post)
+    {
+        return $ulogin->values($post, array(
+            'user_id',
+            'identity',
+            'network',
+        ))->create();
+    }
+
+    protected function create_new_user($data)
+    {
+        $orm_user = ORM::factory('User')->values($data)->create();
+        $orm_user->add('roles', ORM::factory('Role', array('name' => 'login')));
+        return $orm_user;
+    }
+
 }
