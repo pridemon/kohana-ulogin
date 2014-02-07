@@ -165,12 +165,12 @@ class Kohana_Ulogin {
 				
                 $this->create_ulogin($ulogin, $user);
 				
-				Auth::instance()->force_login($orm_user);
+				$this->force_login($orm_user);
 			}
 		}
 		else
 		{
-			Auth::instance()->force_login($ulogin->user);
+			$this->force_login($ulogin->user);
 		}
 	}
 	
@@ -193,6 +193,11 @@ class Kohana_Ulogin {
         $orm_user = ORM::factory('User')->values($data)->create();
         $orm_user->add('roles', ORM::factory('Role', array('name' => 'login')));
         return $orm_user;
+    }
+
+    protected function force_login($user)
+    {
+        Auth::instance()->force_login($user);
     }
 
 }
